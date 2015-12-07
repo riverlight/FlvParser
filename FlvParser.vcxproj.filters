@@ -18,12 +18,24 @@
     <ClInclude Include="FlvParser.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="Videojj.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="vadbg.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="FlvParser.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="main.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Videojj.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="vadbg.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

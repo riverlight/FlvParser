@@ -79,10 +79,14 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="FlvParser.h" />
+    <ClInclude Include="vadbg.h" />
+    <ClInclude Include="Videojj.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="FlvParser.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="vadbg.cpp" />
+    <ClCompile Include="Videojj.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

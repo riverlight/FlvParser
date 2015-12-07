@@ -3,29 +3,10 @@
 
 #include <vector>
 
+#include "Videojj.h"
+
 using namespace std;
 
-#if 0
-class CMediaBase
-{
-public:
-	CMediaBase();
-	virtual ~CMediaBase();
-
-protected:
-
-};
-
-class CMediaH264
-{
-public:
-	CMediaH264();
-	virtual ~CMediaH264();
-
-private:
-
-};
-#endif
 
 class CFlvParser
 {
@@ -69,12 +50,12 @@ private:
 		int ParseH264Configuration(CFlvParser *pParser, unsigned char *pTagData);
 		int ParseNalu(CFlvParser *pParser, unsigned char *pTagData);
 	} Tag;
+
 	typedef struct FlvStat_s
 	{
 		int nMetaNum, nVideoNum, nAudioNum;
 		int nMaxTimeStamp;
 		int nLengthSize = 0;
-		int nUDTagNum = 0;
 	} FlvStat;
 
 	static unsigned int ShowU32(unsigned char *pBuf) { return (pBuf[0] << 24) + (pBuf[1] << 16) + (pBuf[2] << 8) + pBuf[3]; }
@@ -99,6 +80,7 @@ private:
 	FlvHeader* _pFlvHeader;
 	vector<Tag *> _vpTag;
 	FlvStat _sStat;
+	CVideojj *_vjj;
 
 	// H.264
 	int _nNalUnitLength;

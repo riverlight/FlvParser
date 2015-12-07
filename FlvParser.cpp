@@ -12,7 +12,7 @@ static const unsigned int nH264StartCode = 0x01000000;
 
 CFlvParser::CFlvParser()
 {
-
+	_vjj = new CVideojj();
 }
 
 CFlvParser::~CFlvParser()
@@ -22,6 +22,8 @@ CFlvParser::~CFlvParser()
 		DestroyTag(_vpTag[i]);
 		delete _vpTag[i];
 	}
+	if (_vjj != NULL)
+		delete _vjj;
 }
 
 int CFlvParser::Parse(unsigned char *pBuf, int nBufSize, int &nUsedLen)
@@ -62,8 +64,9 @@ int CFlvParser::PrintInfo()
 
 	cout << "vnum: " << _sStat.nVideoNum << " , anum: " << _sStat.nAudioNum << " , mnum: " << _sStat.nMetaNum << endl;
 	cout << "maxTimeStamp: " << _sStat.nMaxTimeStamp << " ,nLengthSize: " << _sStat.nLengthSize << endl;
-	cout << "UD tagNum: " << _sStat.nUDTagNum << endl;
-
+	cout << "Vjj SEI num: " << _vjj->_vVjjSEI.size() << endl;
+	for (int i = 0; i < _vjj->_vVjjSEI.size(); i++)
+		cout << "SEI time : " << _vjj->_vVjjSEI[i].nTimeStamp << endl;
 	return 1;
 }
 
@@ -116,29 +119,6 @@ int CFlvParser::StatVideo(Tag *pTag)
 	if (pTag->pTagData[0] == 0x17 && pTag->pTagData[1] == 0x00)
 	{
 		_sStat.nLengthSize = (pTag->pTagData[9] & 0x03) + 1;
-	}
-	if (IsUserDataTag(pTag) != 0)
-		_sStat.nUDTagNum++;
-
-	return 1;
-}
-
-int CFlvParser::IsUserDataTag(Tag *pTag)
-{
-	if (pTag->pTagData[0] != 0x27 || pTag->pTagData[1] != 0x01)
-		return 0;
-
-	unsigned char *pNalu = pTag->pTagData + (1 + 1 + 3 + _sStat.nLengthSize);
-	if (pNalu[0] != 0x06 || pNalu[1] != 0x05)
-		return 0;
-	unsigned char *p = pNalu + 2;
-	while (*p++ == 0xff);
-	const char *szVideojjUUID = "VideojjLeonUUID";
-	char *pp = (char *)p;
-	for (int i = 0; i < strlen(szVideojjUUID); i++)
-	{
-		if (pp[i] != szVideojjUUID[i])
-			return 0;
 	}
 
 	return 1;
@@ -284,6 +264,7 @@ int CFlvParser::Tag::ParseNalu(CFlvParser *pParser, unsigned char *pTagData)
 		}
 		memcpy(pMedia + nMediaLen, &nH264StartCode, 4);
 		memcpy(pMedia + nMediaLen + 4, pd + nOffset + pParser->_nNalUnitLength, nNaluLen);
+		pParser->_vjj->Process(pMedia+nMediaLen, 4+nNaluLen, header.nTotalTS);
 		nMediaLen += (4 + nNaluLen);
 		nOffset += (pParser->_nNalUnitLength + nNaluLen);
 	}
