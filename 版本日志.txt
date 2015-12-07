@@ -1,0 +1,4 @@
+v 0.01 		2015.12.07
+1. initial version
+2. parse FLV base infomation
+3. dump H.264 bitstream
