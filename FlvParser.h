@@ -37,19 +37,29 @@ private:
 
 		unsigned int nTotalTS;
 	} TagHeader;
-	typedef struct Tag_s
+
+	class Tag
 	{
-		TagHeader header;
-		unsigned char *pTagData;
-		unsigned char *pMedia;
-		int nMediaLen;
+	public:
+		void Init(TagHeader *pHeader, unsigned char *pBuf, int nLeftLen);
+
+		TagHeader _header;
+		unsigned char *_pTagData;
+		unsigned char *_pMedia;
+		int _nMediaLen;
+	};
+
+	class CVideoTag : public Tag
+	{
+	public:
+		CVideoTag(TagHeader *pHeader, unsigned char *pBuf, int nLeftLen, CFlvParser *pParser);
 
 		int nFrameType;
 		int nCodecID;
 		int ParseH264Tag(CFlvParser *pParser);
 		int ParseH264Configuration(CFlvParser *pParser, unsigned char *pTagData);
 		int ParseNalu(CFlvParser *pParser, unsigned char *pTagData);
-	} Tag;
+	};
 
 	typedef struct FlvStat_s
 	{

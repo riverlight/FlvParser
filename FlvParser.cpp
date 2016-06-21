@@ -49,7 +49,7 @@ int CFlvParser::Parse(unsigned char *pBuf, int nBufSize, int &nUsedLen)
 			nOffset -= 4;
 			break;
 		}
-		nOffset += (11 + pTag->header.nDataSize);
+		nOffset += (11 + pTag->_header.nDataSize);
 
 		_vpTag.push_back(pTag);
 	}
@@ -78,10 +78,10 @@ int CFlvParser::DumpH264(const std::string &path)
 	vector<Tag *>::iterator it_tag;
 	for (it_tag = _vpTag.begin(); it_tag < _vpTag.end(); it_tag++)
 	{
-		if ((*it_tag)->header.nType != 0x09)
+		if ((*it_tag)->_header.nType != 0x09)
 			continue;
 
-		f.write((char *)(*it_tag)->pMedia, (*it_tag)->nMediaLen);
+		f.write((char *)(*it_tag)->_pMedia, (*it_tag)->_nMediaLen);
 	}
 	f.close();
 
@@ -92,7 +92,7 @@ int CFlvParser::Stat()
 {
 	for (int i = 0; i < _vpTag.size(); i++)
 	{
-		switch (_vpTag[i]->header.nType)
+		switch (_vpTag[i]->_header.nType)
 		{
 		case 0x08:
 			_sStat.nAudioNum++;
@@ -114,11 +114,11 @@ int CFlvParser::Stat()
 int CFlvParser::StatVideo(Tag *pTag)
 {
 	_sStat.nVideoNum++;
-	_sStat.nMaxTimeStamp = pTag->header.nTimeStamp;
+	_sStat.nMaxTimeStamp = pTag->_header.nTimeStamp;
 
-	if (pTag->pTagData[0] == 0x17 && pTag->pTagData[1] == 0x00)
+	if (pTag->_pTagData[0] == 0x17 && pTag->_pTagData[1] == 0x00)
 	{
-		_sStat.nLengthSize = (pTag->pTagData[9] & 0x03) + 1;
+		_sStat.nLengthSize = (pTag->_pTagData[9] & 0x03) + 1;
 	}
 
 	return 1;
@@ -146,55 +146,70 @@ int CFlvParser::DestroyFlvHeader(FlvHeader *pHeader)
 	return 1;
 }
 
+void CFlvParser::Tag::Init(TagHeader *pHeader, unsigned char *pBuf, int nLeftLen)
+{
+	memcpy(&_header, pHeader, sizeof(TagHeader));
+
+	_pTagData = new unsigned char[_header.nDataSize];
+	memcpy(_pTagData, pBuf + 11, _header.nDataSize);
+
+}
+
+CFlvParser::CVideoTag::CVideoTag(TagHeader *pHeader, unsigned char *pBuf, int nLeftLen, CFlvParser *pParser)
+{
+	Init(pHeader, pBuf, nLeftLen);
+
+	unsigned char *pd = _pTagData;
+	nFrameType = (pd[0] & 0xf0) >> 4;
+	nCodecID = pd[0] & 0x0f;
+	if (_header.nType == 0x09 && nCodecID == 7)
+	{
+		ParseH264Tag(pParser);
+	}
+}
+
 CFlvParser::Tag *CFlvParser::CreateTag(unsigned char *pBuf, int nLeftLen)
 {
-	Tag *pTag = new Tag;
-	memset(pTag, 0, sizeof(Tag));
-
-	pTag->header.nType = ShowU8(pBuf+0);
-	pTag->header.nDataSize = ShowU24(pBuf + 1);
-	pTag->header.nTimeStamp = ShowU24(pBuf + 4);
-	pTag->header.nTSEx = ShowU8(pBuf + 7);
-	pTag->header.nStreamID = ShowU24(pBuf + 8);
-	pTag->header.nTotalTS = unsigned int((pTag->header.nTSEx << 24)) + pTag->header.nTimeStamp;
+	TagHeader header;
+	header.nType = ShowU8(pBuf+0);
+	header.nDataSize = ShowU24(pBuf + 1);
+	header.nTimeStamp = ShowU24(pBuf + 4);
+	header.nTSEx = ShowU8(pBuf + 7);
+	header.nStreamID = ShowU24(pBuf + 8);
+	header.nTotalTS = unsigned int((header.nTSEx << 24)) + header.nTimeStamp;
+	cout << "total TS : " << header.nTotalTS << endl;
 	//cout << "nLeftLen : " << nLeftLen << " , nDataSize : " << pTag->header.nDataSize << endl;
-	if ((pTag->header.nDataSize + 11) > nLeftLen)
+	if ((header.nDataSize + 11) > nLeftLen)
 	{
-		delete pTag;
 		return NULL;
 	}
-	pTag->pTagData = new unsigned char[pTag->header.nDataSize];
-	if (pTag->pTagData == NULL)
-	{
-		delete pTag;
-		return NULL;
-	}
-	memcpy(pTag->pTagData, pBuf + 11, pTag->header.nDataSize);
 
-	unsigned char *pd = pTag->pTagData;
-	pTag->nFrameType = (pd[0] & 0xf0) >> 4;
-	pTag->nCodecID = pd[0] & 0x0f;
-	if (pTag->header.nType == 0x09 && pTag->nCodecID==7)
-	{
-		pTag->ParseH264Tag(this);
+	Tag *pTag;
+	switch (header.nType) {
+	case 0x09:
+		pTag = new CVideoTag(&header, pBuf, nLeftLen, this);
+		break;
+	default:
+		pTag = new Tag();
+		pTag->Init(&header, pBuf, nLeftLen);
 	}
-
+	
 	return pTag;
 }
 
 int CFlvParser::DestroyTag(Tag *pTag)
 {
-	if (pTag->pMedia != NULL)
-		delete pTag->pMedia;
-	if (pTag->pTagData!=NULL)
-		delete pTag->pTagData;
+	if (pTag->_pMedia != NULL)
+		delete pTag->_pMedia;
+	if (pTag->_pTagData!=NULL)
+		delete pTag->_pTagData;
 
 	return 1;
 }
 
-int CFlvParser::Tag::ParseH264Tag(CFlvParser *pParser)
+int CFlvParser::CVideoTag::ParseH264Tag(CFlvParser *pParser)
 {
-	unsigned char *pd = pTagData;
+	unsigned char *pd = _pTagData;
 	int nAVCPacketType = pd[1];
 	int nCompositionTime = CFlvParser::ShowU24(pd + 2);
 
@@ -213,7 +228,7 @@ int CFlvParser::Tag::ParseH264Tag(CFlvParser *pParser)
 	return 1;
 }
 
-int CFlvParser::Tag::ParseH264Configuration(CFlvParser *pParser, unsigned char *pTagData)
+int CFlvParser::CVideoTag::ParseH264Configuration(CFlvParser *pParser, unsigned char *pTagData)
 {
 	unsigned char *pd = pTagData;
 
@@ -223,28 +238,28 @@ int CFlvParser::Tag::ParseH264Configuration(CFlvParser *pParser, unsigned char *
 	sps_size = CFlvParser::ShowU16(pd + 11);
 	pps_size = CFlvParser::ShowU16(pd + 11 + (2 + sps_size) + 1);
 	
-	nMediaLen = 4 + sps_size + 4 + pps_size;
-	pMedia = new unsigned char[nMediaLen];
-	memcpy(pMedia, &nH264StartCode, 4);
-	memcpy(pMedia + 4, pd + 11 + 2, sps_size);
-	memcpy(pMedia + 4 + sps_size, &nH264StartCode, 4);
-	memcpy(pMedia + 4 + sps_size + 4, pd + 11 + 2 + sps_size + 2 + 1, pps_size);
+	_nMediaLen = 4 + sps_size + 4 + pps_size;
+	_pMedia = new unsigned char[_nMediaLen];
+	memcpy(_pMedia, &nH264StartCode, 4);
+	memcpy(_pMedia + 4, pd + 11 + 2, sps_size);
+	memcpy(_pMedia + 4 + sps_size, &nH264StartCode, 4);
+	memcpy(_pMedia + 4 + sps_size + 4, pd + 11 + 2 + sps_size + 2 + 1, pps_size);
 
 	return 1;
 }
 
-int CFlvParser::Tag::ParseNalu(CFlvParser *pParser, unsigned char *pTagData)
+int CFlvParser::CVideoTag::ParseNalu(CFlvParser *pParser, unsigned char *pTagData)
 {
 	unsigned char *pd = pTagData;
 	int nOffset = 0;
 
-	pMedia = new unsigned char[header.nDataSize+10];
-	nMediaLen = 0;
+	_pMedia = new unsigned char[_header.nDataSize+10];
+	_nMediaLen = 0;
 
 	nOffset = 5;
 	while (1)
 	{
-		if (nOffset >= header.nDataSize)
+		if (nOffset >= _header.nDataSize)
 			break;
 
 		int nNaluLen;
@@ -262,10 +277,10 @@ int CFlvParser::Tag::ParseNalu(CFlvParser *pParser, unsigned char *pTagData)
 		default:
 			nNaluLen = CFlvParser::ShowU8(pd + nOffset);
 		}
-		memcpy(pMedia + nMediaLen, &nH264StartCode, 4);
-		memcpy(pMedia + nMediaLen + 4, pd + nOffset + pParser->_nNalUnitLength, nNaluLen);
-		pParser->_vjj->Process(pMedia+nMediaLen, 4+nNaluLen, header.nTotalTS);
-		nMediaLen += (4 + nNaluLen);
+		memcpy(_pMedia + _nMediaLen, &nH264StartCode, 4);
+		memcpy(_pMedia + _nMediaLen + 4, pd + nOffset + pParser->_nNalUnitLength, nNaluLen);
+		pParser->_vjj->Process(_pMedia+_nMediaLen, 4+nNaluLen, _header.nTotalTS);
+		_nMediaLen += (4 + nNaluLen);
 		nOffset += (pParser->_nNalUnitLength + nNaluLen);
 	}
 
