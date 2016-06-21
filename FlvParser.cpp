@@ -7,6 +7,9 @@ using namespace std;
 
 #define CheckBuffer(x) { if ((nBufSize-nOffset)<(x)) { nUsedLen = nOffset; return 0;} }
 
+int CFlvParser::CAudioTag::_aacProfile;
+int CFlvParser::CAudioTag::_sampleRateIndex;
+int CFlvParser::CAudioTag::_channelConfig;
 
 static const unsigned int nH264StartCode = 0x01000000;
 
@@ -88,6 +91,29 @@ int CFlvParser::DumpH264(const std::string &path)
 	return 1;
 }
 
+int CFlvParser::DumpAAC(const std::string &path)
+{
+	fstream f;
+	f.open(path, ios_base::out | ios_base::binary);
+
+	vector<Tag *>::iterator it_tag;
+	for (it_tag = _vpTag.begin(); it_tag < _vpTag.end(); it_tag++)
+	{
+		if ((*it_tag)->_header.nType != 0x08)
+			continue;
+
+		CAudioTag *pAudioTag = (CAudioTag *)(*it_tag);
+		if (pAudioTag->_nSoundFormat != 10)
+			continue;
+
+		if (pAudioTag->_nMediaLen!=0)
+			f.write((char *)(*it_tag)->_pMedia, (*it_tag)->_nMediaLen);
+	}
+	f.close();
+
+	return 1;
+}
+
 int CFlvParser::Stat()
 {
 	for (int i = 0; i < _vpTag.size(); i++)
@@ -160,12 +186,101 @@ CFlvParser::CVideoTag::CVideoTag(TagHeader *pHeader, unsigned char *pBuf, int nL
 	Init(pHeader, pBuf, nLeftLen);
 
 	unsigned char *pd = _pTagData;
-	nFrameType = (pd[0] & 0xf0) >> 4;
-	nCodecID = pd[0] & 0x0f;
-	if (_header.nType == 0x09 && nCodecID == 7)
+	_nFrameType = (pd[0] & 0xf0) >> 4;
+	_nCodecID = pd[0] & 0x0f;
+	if (_header.nType == 0x09 && _nCodecID == 7)
 	{
 		ParseH264Tag(pParser);
 	}
+}
+
+CFlvParser::CAudioTag::CAudioTag(TagHeader *pHeader, unsigned char *pBuf, int nLeftLen, CFlvParser *pParser)
+{
+	Init(pHeader, pBuf, nLeftLen);
+
+	unsigned char *pd = _pTagData;
+	_nSoundFormat = (pd[0] & 0xf0) >> 4;
+	_nSoundRate = (pd[0] & 0x0c) >> 2;
+	_nSoundSize = (pd[0] & 0x02) >> 1;
+	_nSoundType = (pd[0] & 0x01);
+	if (_nSoundFormat == 10) // AAC
+	{
+		ParseAACTag(pParser);
+	}
+}
+
+int CFlvParser::CAudioTag::ParseAACTag(CFlvParser *pParser)
+{
+	unsigned char *pd = _pTagData;
+	int nAACPacketType = pd[1];
+
+	if (nAACPacketType == 0)
+	{
+		ParseAudioSpecificConfig(pParser, pd);
+	}
+	else if (nAACPacketType == 1)
+	{
+		ParseRawAAC(pParser, pd);
+	}
+	else
+	{
+
+	}
+
+	return 1;
+}
+
+int CFlvParser::CAudioTag::ParseAudioSpecificConfig(CFlvParser *pParser, unsigned char *pTagData)
+{
+	unsigned char *pd = _pTagData;
+
+	_aacProfile = ((pd[2]&0xf8)>>3) - 1;
+	_sampleRateIndex = ((pd[2]&0x07)<<1) | (pd[3]>>7);
+	_channelConfig = (pd[3]>>3) & 0x0f;
+
+	_pMedia = NULL;
+	_nMediaLen = 0;
+
+	return 1;
+}
+
+int CFlvParser::CAudioTag::ParseRawAAC(CFlvParser *pParser, unsigned char *pTagData)
+{
+	uint64_t bits = 0;
+	int dataSize = _header.nDataSize - 2;
+
+	WriteU64(bits, 12, 0xFFF);
+	WriteU64(bits, 1, 0);
+	WriteU64(bits, 2, 0);
+	WriteU64(bits, 1, 1);
+	WriteU64(bits, 2, _aacProfile);
+	WriteU64(bits, 4, _sampleRateIndex);
+	WriteU64(bits, 1, 0);
+	WriteU64(bits, 3, _channelConfig);
+	WriteU64(bits, 1, 0);
+	WriteU64(bits, 1, 0);
+	WriteU64(bits, 1, 0);
+	WriteU64(bits, 1, 0);
+	WriteU64(bits, 13, 7 + dataSize);
+	WriteU64(bits, 11, 0x7FF);
+	WriteU64(bits, 2, 0);
+
+	_nMediaLen = 7 + dataSize;
+	_pMedia = new unsigned char[_nMediaLen];
+	unsigned char p64[8];
+	p64[0] = (unsigned char)(bits >> 56);
+	p64[1] = (unsigned char)(bits >> 48);
+	p64[2] = (unsigned char)(bits >> 40);
+	p64[3] = (unsigned char)(bits >> 32);
+	p64[4] = (unsigned char)(bits >> 24);
+	p64[5] = (unsigned char)(bits >> 16);
+	p64[6] = (unsigned char)(bits >> 8);
+	p64[7] = (unsigned char)(bits);
+
+	memcpy(_pMedia, p64+1, 7);
+	memcpy(_pMedia + 7, pTagData + 2, dataSize);
+
+	return 1;
 }
 
 CFlvParser::Tag *CFlvParser::CreateTag(unsigned char *pBuf, int nLeftLen)
@@ -188,6 +303,9 @@ CFlvParser::Tag *CFlvParser::CreateTag(unsigned char *pBuf, int nLeftLen)
 	switch (header.nType) {
 	case 0x09:
 		pTag = new CVideoTag(&header, pBuf, nLeftLen, this);
+		break;
+	case 0x08:
+		pTag = new CAudioTag(&header, pBuf, nLeftLen, this);
 		break;
 	default:
 		pTag = new Tag();

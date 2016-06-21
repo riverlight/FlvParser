@@ -7,6 +7,7 @@
 
 using namespace std;
 
+typedef unsigned long long uint64_t;
 
 class CFlvParser
 {
@@ -17,6 +18,7 @@ public:
 	int Parse(unsigned char *pBuf, int nBufSize, int &nUsedLen);
 	int PrintInfo();
 	int DumpH264(const std::string &path);
+	int DumpAAC(const std::string &path);
 
 private:
 	typedef struct FlvHeader_s
@@ -54,11 +56,31 @@ private:
 	public:
 		CVideoTag(TagHeader *pHeader, unsigned char *pBuf, int nLeftLen, CFlvParser *pParser);
 
-		int nFrameType;
-		int nCodecID;
+		int _nFrameType;
+		int _nCodecID;
 		int ParseH264Tag(CFlvParser *pParser);
 		int ParseH264Configuration(CFlvParser *pParser, unsigned char *pTagData);
 		int ParseNalu(CFlvParser *pParser, unsigned char *pTagData);
+	};
+
+	class CAudioTag : public Tag
+	{
+	public:
+		CAudioTag(TagHeader *pHeader, unsigned char *pBuf, int nLeftLen, CFlvParser *pParser);
+
+		int _nSoundFormat;
+		int _nSoundRate;
+		int _nSoundSize;
+		int _nSoundType;
+
+		// aac
+		static int _aacProfile;
+		static int _sampleRateIndex;
+		static int _channelConfig;
+
+		int ParseAACTag(CFlvParser *pParser);
+		int ParseAudioSpecificConfig(CFlvParser *pParser, unsigned char *pTagData);
+		int ParseRawAAC(CFlvParser *pParser, unsigned char *pTagData);
 	};
 
 	typedef struct FlvStat_s
@@ -72,6 +94,11 @@ private:
 	static unsigned int ShowU24(unsigned char *pBuf) { return (pBuf[0] << 16) + (pBuf[1] << 8) + (pBuf[2]); }
 	static unsigned int ShowU16(unsigned char *pBuf) { return (pBuf[0] << 8) + (pBuf[1]); }
 	static unsigned int ShowU8(unsigned char *pBuf) { return (pBuf[0]); }
+	static void WriteU64(uint64_t & x, int length, int value)
+	{
+		uint64_t mask = 0xFFFFFFFFFFFFFFFF >> (64 - length);
+		x = (x << length) | ((uint64_t)value & mask);
+	}
 
 	friend Tag;
 	

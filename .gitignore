@@ -30,3 +30,4 @@ debug
 *.sdf
 *.suo
 release
+*.opensdf

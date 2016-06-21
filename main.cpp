@@ -59,6 +59,7 @@ void Process(fstream &fin)
 	}
 	parser.PrintInfo();
 	parser.DumpH264("parser.264");
+	parser.DumpAAC("parser.aac");
 
 	delete pBak;
 	delete pBuf;
