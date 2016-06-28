@@ -33,7 +33,7 @@ void Process(fstream &fin)
 {
 	CFlvParser parser;
 
-	int nBufSize = 100 * 1024;
+	int nBufSize = 2000 * 1024;
 	int nFlvPos = 0;
 	unsigned char *pBuf, *pBak;
 	pBuf = new unsigned char[nBufSize];
