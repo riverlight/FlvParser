@@ -19,6 +19,7 @@ public:
 	int PrintInfo();
 	int DumpH264(const std::string &path);
 	int DumpAAC(const std::string &path);
+	int DumpFlv(const std::string &path);
 
 private:
 	typedef struct FlvHeader_s
@@ -46,6 +47,7 @@ private:
 		void Init(TagHeader *pHeader, unsigned char *pBuf, int nLeftLen);
 
 		TagHeader _header;
+		unsigned char *_pTagHeader;
 		unsigned char *_pTagData;
 		unsigned char *_pMedia;
 		int _nMediaLen;
@@ -98,6 +100,17 @@ private:
 	{
 		uint64_t mask = 0xFFFFFFFFFFFFFFFF >> (64 - length);
 		x = (x << length) | ((uint64_t)value & mask);
+	}
+	static unsigned int WriteU32(unsigned int n)
+	{
+		unsigned int nn = 0;
+		unsigned char *p = (unsigned char *)&n;
+		unsigned char *pp = (unsigned char *)&nn;
+		pp[0] = p[3];
+		pp[1] = p[2];
+		pp[2] = p[1];
+		pp[3] = p[0];
+		return nn;
 	}
 
 	friend Tag;

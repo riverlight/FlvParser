@@ -114,6 +114,36 @@ int CFlvParser::DumpAAC(const std::string &path)
 	return 1;
 }
 
+int CFlvParser::DumpFlv(const std::string &path)
+{
+	fstream f;
+	f.open(path, ios_base::out | ios_base::binary);
+	
+	// write flv-header
+	f.write((char *)_pFlvHeader->pFlvHeader, _pFlvHeader->nHeadSize);
+	unsigned int nLastTagSize = 0;
+	
+
+	// write flv-tag
+	vector<Tag *>::iterator it_tag;
+	for (it_tag = _vpTag.begin(); it_tag < _vpTag.end(); it_tag++)
+	{
+		unsigned int nn = WriteU32(nLastTagSize);
+		f.write((char *)&nn, 4);
+
+		f.write((char *)(*it_tag)->_pTagHeader, 11);
+		f.write((char *)(*it_tag)->_pTagData, (*it_tag)->_header.nDataSize);
+
+		nLastTagSize = 11 + (*it_tag)->_header.nDataSize;
+	}
+	unsigned int nn = WriteU32(nLastTagSize);
+	f.write((char *)&nn, 4);
+	
+	f.close();
+
+	return 1;
+}
+
 int CFlvParser::Stat()
 {
 	for (int i = 0; i < _vpTag.size(); i++)
@@ -159,6 +189,7 @@ CFlvParser::FlvHeader *CFlvParser::CreateFlvHeader(unsigned char *pBuf)
 	pHeader->nHeadSize = ShowU32(pBuf + 5);
 
 	pHeader->pFlvHeader = new unsigned char[pHeader->nHeadSize];
+	memcpy(pHeader->pFlvHeader, pBuf, pHeader->nHeadSize);
 
 	return pHeader;
 }
@@ -175,6 +206,9 @@ int CFlvParser::DestroyFlvHeader(FlvHeader *pHeader)
 void CFlvParser::Tag::Init(TagHeader *pHeader, unsigned char *pBuf, int nLeftLen)
 {
 	memcpy(&_header, pHeader, sizeof(TagHeader));
+
+	_pTagHeader = new unsigned char[11];
+	memcpy(_pTagHeader, pBuf, 11);
 
 	_pTagData = new unsigned char[_header.nDataSize];
 	memcpy(_pTagData, pBuf + 11, _header.nDataSize);
@@ -321,6 +355,8 @@ int CFlvParser::DestroyTag(Tag *pTag)
 		delete pTag->_pMedia;
 	if (pTag->_pTagData!=NULL)
 		delete pTag->_pTagData;
+	if (pTag->_pTagHeader != NULL)
+		delete pTag->_pTagHeader;
 
 	return 1;
 }

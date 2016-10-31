@@ -58,8 +58,9 @@ void Process(fstream &fin)
 		nFlvPos -= nUsedLen;
 	}
 	parser.PrintInfo();
-	parser.DumpH264("parser.264");
+	parser.DumpH264("parser.h264");
 	parser.DumpAAC("parser.aac");
+	parser.DumpFlv("leon.flv");
 
 	delete pBak;
 	delete pBuf;
