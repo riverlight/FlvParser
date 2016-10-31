@@ -63,6 +63,10 @@ private:
 		int ParseH264Tag(CFlvParser *pParser);
 		int ParseH264Configuration(CFlvParser *pParser, unsigned char *pTagData);
 		int ParseNalu(CFlvParser *pParser, unsigned char *pTagData);
+
+		// ´¦ÀíË«h264-startcode
+		int _bHaveDoubleSC;
+		unsigned char *_pTagData2;
 	};
 
 	class CAudioTag : public Tag

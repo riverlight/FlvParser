@@ -122,19 +122,92 @@ int CFlvParser::DumpFlv(const std::string &path)
 	// write flv-header
 	f.write((char *)_pFlvHeader->pFlvHeader, _pFlvHeader->nHeadSize);
 	unsigned int nLastTagSize = 0;
-	
 
 	// write flv-tag
 	vector<Tag *>::iterator it_tag;
 	for (it_tag = _vpTag.begin(); it_tag < _vpTag.end(); it_tag++)
 	{
+		char *p_td = (char *)(*it_tag)->_pTagData;
+		int nTagLength = (*it_tag)->_header.nDataSize;
+
+		if ((*it_tag)->_header.nType == 0x09)
+		{
+			CVideoTag *pTag = (CVideoTag *)(*it_tag);
+			if (pTag->_bHaveDoubleSC != 0)
+			{
+				p_td = (char *)pTag->_pTagData2;
+				nTagLength -= 4;
+
+				int nOffset = 5;
+				int nNaluLen;
+				switch (_nNalUnitLength)
+				{
+				case 4:
+				{
+					nNaluLen = CFlvParser::ShowU32((unsigned char *)p_td + nOffset);
+					nNaluLen -= 4;
+					unsigned int nNL4 = WriteU32(nNaluLen);
+					memcpy((unsigned char *)p_td + nOffset, &nNL4, 4);
+					break;
+				}
+				case 3:
+				{
+					nNaluLen = CFlvParser::ShowU24((unsigned char *)p_td + nOffset);
+					nNaluLen -= 4;
+					unsigned int nNL3 = WriteU32(nNaluLen);
+					memcpy((unsigned char *)p_td + nOffset, (unsigned char *)&nNL3 + 1, 3);
+					break;
+				}
+				case 2:
+				{
+					nNaluLen = CFlvParser::ShowU16((unsigned char *)p_td + nOffset);
+					nNaluLen -= 4;
+					unsigned int nNL2 = WriteU32(nNaluLen);
+					memcpy((unsigned char *)p_td + nOffset, (unsigned char *)&nNL2 + 2, 2);
+					break;
+				}
+				default:
+				{
+					nNaluLen = CFlvParser::ShowU8((unsigned char *)p_td + nOffset);
+					nNaluLen -= 4;
+					unsigned int nNL1 = WriteU32(nNaluLen);
+					memcpy((unsigned char *)p_td + nOffset, (unsigned char *)&nNL1 + 3, 1);
+				}
+				}
+				printf("nNaluLen : %d\n", nNaluLen);
+
+				unsigned int nTL = WriteU32(nTagLength);
+				memcpy((*it_tag)->_pTagHeader + 1, (unsigned char *)&nTL + 1, 3);
+
+#if 0
+				{
+					fstream f;
+					f.open("abc.bin", ios_base::out | ios_base::binary);
+					f.write(p_td, nTagLength);
+					f.close();
+					exit(0);
+				}
+#endif 
+			}
+
+			if ((*it_tag)->_nMediaLen >= 8)
+			{
+				if (ShowU32((unsigned char *)(*it_tag)->_pMedia + 4) == 1)
+				{
+					printf("bad flv!!!!  %x \n", ((unsigned char *)(*it_tag)->_pMedia)[8]);
+				}
+			}
+		}
+		
+		//if ()
+		
 		unsigned int nn = WriteU32(nLastTagSize);
 		f.write((char *)&nn, 4);
 
 		f.write((char *)(*it_tag)->_pTagHeader, 11);
-		f.write((char *)(*it_tag)->_pTagData, (*it_tag)->_header.nDataSize);
+		f.write(p_td, nTagLength);
 
-		nLastTagSize = 11 + (*it_tag)->_header.nDataSize;
+		nLastTagSize = 11 + nTagLength;
 	}
 	unsigned int nn = WriteU32(nLastTagSize);
 	f.write((char *)&nn, 4);
@@ -217,6 +290,9 @@ void CFlvParser::Tag::Init(TagHeader *pHeader, unsigned char *pBuf, int nLeftLen
 
 CFlvParser::CVideoTag::CVideoTag(TagHeader *pHeader, unsigned char *pBuf, int nLeftLen, CFlvParser *pParser)
 {
+	_bHaveDoubleSC = 0;
+	_pTagData2 = NULL;
+
 	Init(pHeader, pBuf, nLeftLen);
 
 	unsigned char *pd = _pTagData;
@@ -432,6 +508,15 @@ int CFlvParser::CVideoTag::ParseNalu(CFlvParser *pParser, unsigned char *pTagDat
 			nNaluLen = CFlvParser::ShowU8(pd + nOffset);
 		}
 		memcpy(_pMedia + _nMediaLen, &nH264StartCode, 4);
+
+		if (ShowU32(pd + nOffset + pParser->_nNalUnitLength) == 1)
+		{
+			_bHaveDoubleSC = 1;
+			_pTagData2 = new unsigned char[_header.nDataSize-4];
+			memcpy(_pTagData2, pTagData, nOffset + pParser->_nNalUnitLength);
+			memcpy(_pTagData2 + nOffset + pParser->_nNalUnitLength, pd + nOffset + pParser->_nNalUnitLength + 4, nNaluLen-4);
+		}
+
 		memcpy(_pMedia + _nMediaLen + 4, pd + nOffset + pParser->_nNalUnitLength, nNaluLen);
 		pParser->_vjj->Process(_pMedia+_nMediaLen, 4+nNaluLen, _header.nTotalTS);
 		_nMediaLen += (4 + nNaluLen);
