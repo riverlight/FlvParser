@@ -30,7 +30,7 @@ private:
 
 		unsigned char *pFlvHeader;
 	} FlvHeader;
-	typedef struct TagHeader_s
+	struct TagHeader
 	{
 		int nType;
 		int nDataSize;
@@ -39,11 +39,15 @@ private:
 		int nStreamID;
 
 		unsigned int nTotalTS;
-	} TagHeader;
+
+		TagHeader() : nType(0), nDataSize(0), nTimeStamp(0), nTSEx(0), nStreamID(0), nTotalTS(0) {}
+		~TagHeader() {}
+	};
 
 	class Tag
 	{
 	public:
+	    Tag() : _pTagHeader(NULL), _pTagData(NULL), _pMedia(NULL), _nMediaLen(0) {}
 		void Init(TagHeader *pHeader, unsigned char *pBuf, int nLeftLen);
 
 		TagHeader _header;
@@ -63,10 +67,6 @@ private:
 		int ParseH264Tag(CFlvParser *pParser);
 		int ParseH264Configuration(CFlvParser *pParser, unsigned char *pTagData);
 		int ParseNalu(CFlvParser *pParser, unsigned char *pTagData);
-
-		// ´¦ÀíË«h264-startcode
-		int _bHaveDoubleSC;
-		unsigned char *_pTagData2;
 	};
 
 	class CAudioTag : public Tag
@@ -89,35 +89,40 @@ private:
 		int ParseRawAAC(CFlvParser *pParser, unsigned char *pTagData);
 	};
 
-	typedef struct FlvStat_s
+	struct FlvStat
 	{
 		int nMetaNum, nVideoNum, nAudioNum;
 		int nMaxTimeStamp;
-		int nLengthSize = 0;
-	} FlvStat;
+		int nLengthSize;
 
-	static unsigned int ShowU32(unsigned char *pBuf) { return (pBuf[0] << 24) + (pBuf[1] << 16) + (pBuf[2] << 8) + pBuf[3]; }
-	static unsigned int ShowU24(unsigned char *pBuf) { return (pBuf[0] << 16) + (pBuf[1] << 8) + (pBuf[2]); }
-	static unsigned int ShowU16(unsigned char *pBuf) { return (pBuf[0] << 8) + (pBuf[1]); }
+		FlvStat() : nMetaNum(0), nVideoNum(0), nAudioNum(0), nMaxTimeStamp(0), nLengthSize(0){}
+		~FlvStat() {}
+	};
+
+
+
+	static unsigned int ShowU32(unsigned char *pBuf) { return (pBuf[0] << 24) | (pBuf[1] << 16) | (pBuf[2] << 8) | pBuf[3]; }
+	static unsigned int ShowU24(unsigned char *pBuf) { return (pBuf[0] << 16) | (pBuf[1] << 8) | (pBuf[2]); }
+	static unsigned int ShowU16(unsigned char *pBuf) { return (pBuf[0] << 8) | (pBuf[1]); }
 	static unsigned int ShowU8(unsigned char *pBuf) { return (pBuf[0]); }
 	static void WriteU64(uint64_t & x, int length, int value)
 	{
 		uint64_t mask = 0xFFFFFFFFFFFFFFFF >> (64 - length);
 		x = (x << length) | ((uint64_t)value & mask);
 	}
-	static unsigned int WriteU32(unsigned int n)
-	{
-		unsigned int nn = 0;
-		unsigned char *p = (unsigned char *)&n;
-		unsigned char *pp = (unsigned char *)&nn;
-		pp[0] = p[3];
-		pp[1] = p[2];
-		pp[2] = p[1];
-		pp[3] = p[0];
-		return nn;
-	}
+    static unsigned int WriteU32(unsigned int n)
+    {
+        unsigned int nn = 0;
+        unsigned char *p = (unsigned char *)&n;
+        unsigned char *pp = (unsigned char *)&nn;
+        pp[0] = p[3];
+        pp[1] = p[2];
+        pp[2] = p[1];
+        pp[3] = p[0];
+        return nn;
+    }
 
-	friend Tag;
+	friend class Tag;
 	
 private:
 

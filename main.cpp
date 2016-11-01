@@ -1,3 +1,6 @@
+#include <stdlib.h>
+#include <string.h>
+
 #include <iostream>
 #include <fstream>
 
@@ -5,7 +8,7 @@
 
 using namespace std;
 
-void Process(fstream &fin);
+void Process(fstream &fin, const char *filename);
 
 int main(int argc, char *argv[])
 {
@@ -22,14 +25,14 @@ int main(int argc, char *argv[])
 	if (!fin)
 		return 0;
 
-	Process(fin);
+	Process(fin, argv[1]);
 
 	fin.close();
 
 	return 1;
 }
 
-void Process(fstream &fin)
+void Process(fstream &fin, const char *filename)
 {
 	CFlvParser parser;
 
@@ -60,8 +63,21 @@ void Process(fstream &fin)
 	parser.PrintInfo();
 	parser.DumpH264("parser.h264");
 	parser.DumpAAC("parser.aac");
-	parser.DumpFlv("leon.flv");
 
-	delete pBak;
-	delete pBuf;
+	//dump into flv
+	char newfilename[256];
+	memset(newfilename, 0, sizeof(newfilename));
+	char *suffix = strrchr((char *)filename, '.');
+	if (!suffix) {
+	    printf("filename no suffix!\n");
+	    memcpy(newfilename, filename, strlen(filename));
+	    strcat(newfilename, "-modified.flv");
+	} else {
+	    memcpy(newfilename, filename, suffix - filename);
+	    strcat(newfilename, "-modified.flv");
+	}
+	parser.DumpFlv(newfilename);
+
+	delete []pBak;
+	delete []pBuf;
 }

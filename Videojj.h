@@ -21,7 +21,7 @@ public:
 	int Process(unsigned char *pNalu, int nNaluLen, int nTimeStamp);
 
 private:
-	friend CFlvParser;
+	friend class CFlvParser;
 
 	std::vector<VjjSEI> _vVjjSEI;
 };
