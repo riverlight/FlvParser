@@ -14,9 +14,9 @@ int main(int argc, char *argv[])
 {
 	cout << "Hi, this is FLV parser test program!\n";
 
-	if (argc != 2)
+	if (argc != 3)
 	{
-		cout << "FlvParser.exe [flv]" << endl;
+		cout << "FlvParser.exe [input flv] [output flv]" << endl;
 		return 0;
 	}
 
@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
 	if (!fin)
 		return 0;
 
-	Process(fin, argv[1]);
+	Process(fin, argv[2]);
 
 	fin.close();
 
@@ -60,23 +60,12 @@ void Process(fstream &fin, const char *filename)
 		}
 		nFlvPos -= nUsedLen;
 	}
-	parser.PrintInfo();
-	parser.DumpH264("parser.h264");
-	parser.DumpAAC("parser.aac");
+	//parser.PrintInfo();
+	//parser.DumpH264("parser.264");
+	//parser.DumpAAC("parser.aac");
 
 	//dump into flv
-	char newfilename[256];
-	memset(newfilename, 0, sizeof(newfilename));
-	char *suffix = strrchr((char *)filename, '.');
-	if (!suffix) {
-	    printf("filename no suffix!\n");
-	    memcpy(newfilename, filename, strlen(filename));
-	    strcat(newfilename, "-modified.flv");
-	} else {
-	    memcpy(newfilename, filename, suffix - filename);
-	    strcat(newfilename, "-modified.flv");
-	}
-	parser.DumpFlv(newfilename);
+	parser.DumpFlv(filename);
 
 	delete []pBak;
 	delete []pBuf;

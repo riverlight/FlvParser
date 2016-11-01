@@ -140,7 +140,7 @@ int CFlvParser::DumpFlv(const std::string &path)
         if ((*it_tag)->_header.nType == 0x09 && *((*it_tag)->_pTagData + 1) == 0x01) {
             bool duplicate = false;
             unsigned char *pStartCode = (*it_tag)->_pTagData + 5 + _nNalUnitLength;
-            printf("tagsize=%d\n",(*it_tag)->_header.nDataSize);
+            //printf("tagsize=%d\n",(*it_tag)->_header.nDataSize);
             unsigned nalu_len = 0;
             unsigned char *p_nalu_len=(unsigned char *)&nalu_len;
             switch (_nNalUnitLength) {
@@ -157,36 +157,37 @@ int CFlvParser::DumpFlv(const std::string &path)
                 nalu_len = ShowU8((*it_tag)->_pTagData + 5);
                 break;
             }
+            /*
             printf("nalu_len=%u\n",nalu_len);
             printf("%x,%x,%x,%x,%x,%x,%x,%x,%x\n",(*it_tag)->_pTagData[5],(*it_tag)->_pTagData[6],
                     (*it_tag)->_pTagData[7],(*it_tag)->_pTagData[8],(*it_tag)->_pTagData[9],
                     (*it_tag)->_pTagData[10],(*it_tag)->_pTagData[11],(*it_tag)->_pTagData[12],
                     (*it_tag)->_pTagData[13]);
-
+            */
 
             unsigned char *pStartCodeRecord = pStartCode;
             int i;
-            for (i = 0; i < (*it_tag)->_header.nDataSize; ++i) {
+            for (i = 0; i < (*it_tag)->_header.nDataSize - 5 - _nNalUnitLength - 4; ++i) {
                 if (pStartCode[i] == 0x00 && pStartCode[i+1] == 0x00 && pStartCode[i+2] == 0x00 &&
                         pStartCode[i+3] == 0x01) {
                     if (pStartCode[i+4] == 0x67) {
-                        printf("duplicate sps found!\n");
+                        //printf("duplicate sps found!\n");
                         i += 4;
                         continue;
                     }
                     else if (pStartCode[i+4] == 0x68) {
-                        printf("duplicate pps found!\n");
+                        //printf("duplicate pps found!\n");
                         i += 4;
                         continue;
                     }
                     else if (pStartCode[i+4] == 0x06) {
-                        printf("duplicate sei found!\n");
+                        //printf("duplicate sei found!\n");
                         i += 4;
                         continue;
                     }
                     else {
                         i += 4;
-                        printf("offset=%d\n",i);
+                        //printf("offset=%d\n",i);
                         duplicate = true;
                         break;
                     }
@@ -200,8 +201,8 @@ int CFlvParser::DumpFlv(const std::string &path)
                 (*it_tag)->_pTagHeader[1] = p[2];
                 (*it_tag)->_pTagHeader[2] = p[1];
                 (*it_tag)->_pTagHeader[3] = p[0];
-                printf("after,tagsize=%d\n",(int)ShowU24((*it_tag)->_pTagHeader + 1));
-                printf("%x,%x,%x\n",(*it_tag)->_pTagHeader[1],(*it_tag)->_pTagHeader[2],(*it_tag)->_pTagHeader[3]);
+                //printf("after,tagsize=%d\n",(int)ShowU24((*it_tag)->_pTagHeader + 1));
+                //printf("%x,%x,%x\n",(*it_tag)->_pTagHeader[1],(*it_tag)->_pTagHeader[2],(*it_tag)->_pTagHeader[3]);
 
                 f.write((char *)(*it_tag)->_pTagHeader, 11);
                 switch (_nNalUnitLength) {
@@ -224,14 +225,18 @@ int CFlvParser::DumpFlv(const std::string &path)
                     *((*it_tag)->_pTagData + 5) = p_nalu_len[0];
                     break;
                 }
-                printf("after,nalu_len=%d\n",(int)ShowU32((*it_tag)->_pTagData + 5));
+                //printf("after,nalu_len=%d\n",(int)ShowU32((*it_tag)->_pTagData + 5));
                 f.write((char *)(*it_tag)->_pTagData, pStartCode - (*it_tag)->_pTagData);
+                /*
                 printf("%x,%x,%x,%x,%x,%x,%x,%x,%x\n",(*it_tag)->_pTagData[0],(*it_tag)->_pTagData[1],(*it_tag)->_pTagData[2],
                         (*it_tag)->_pTagData[3],(*it_tag)->_pTagData[4],(*it_tag)->_pTagData[5],(*it_tag)->_pTagData[6],
                         (*it_tag)->_pTagData[7],(*it_tag)->_pTagData[8]);
+                */
                 f.write((char *)pStartCode + i, (*it_tag)->_header.nDataSize - (pStartCode - (*it_tag)->_pTagData));
+                /*
                 printf("write size:%d\n", (pStartCode - (*it_tag)->_pTagData) +
                         ((*it_tag)->_header.nDataSize - (pStartCode - (*it_tag)->_pTagData)));
+                */
             } else {
                 f.write((char *)(*it_tag)->_pTagHeader, 11);
                 f.write((char *)(*it_tag)->_pTagData, (*it_tag)->_header.nDataSize);
